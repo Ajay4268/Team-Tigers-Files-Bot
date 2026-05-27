@@ -1,3 +1,4 @@
+import logging
 from pyrogram import Client, filters
 from pyrogram.types import (
     Message, CallbackQuery,
@@ -7,17 +8,22 @@ from database.db import Database
 from config import Config
 from utils.fsub import check_fsub
 
+logger = logging.getLogger(__name__)
 db = Database()
 
 # ── /start ────────────────────────────────────────────────────────────────────
 
 @Client.on_message(filters.command("start") & filters.private)
 async def start_handler(client: Client, message: Message):
+    logger.info(f"📩 /start received from user {message.from_user.id}")
+
     if not await check_fsub(client, message):
+        logger.info(f"❌ User {message.from_user.id} failed fsub check")
         return
 
     await db.add_user(message.from_user.id)
     user = message.from_user
+    logger.info(f"✅ Sending welcome to {user.first_name}")
 
     buttons = InlineKeyboardMarkup([
         [
@@ -35,11 +41,11 @@ async def start_handler(client: Client, message: Message):
         ],
     ])
 
-    # Send channel logo + welcome message
     try:
         channel = await client.get_chat(Config.CHANNEL_USERNAME)
         photo   = channel.photo.big_file_id if channel.photo else None
-    except Exception:
+    except Exception as e:
+        logger.warning(f"Could not get channel photo: {e}")
         photo = None
 
     text = (
@@ -228,6 +234,7 @@ async def back_home(client: Client, callback_query: CallbackQuery):
 
 @Client.on_message(filters.command("help"))
 async def help_handler(client: Client, message: Message):
+    logger.info(f"📩 /help received from user {message.from_user.id}")
     if not await check_fsub(client, message):
         return
     await message.reply_text(
